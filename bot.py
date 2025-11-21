@@ -1364,22 +1364,27 @@ def run_health_server():
     web.run_app(app, host='0.0.0.0', port=10000)
 
 async def main():
-    # Запускаем веб-сервер для здоровья в отдельном потоке
-    health_thread = threading.Thread(target=run_health_server, daemon=True)
-    health_thread.start()
-    
-    logger.info("🌌 Запускаю Celestial Checker на Render...")
     try:
+        # Запускаем веб-сервер для здоровья
+        health_thread = threading.Thread(target=run_health_server, daemon=True)
+        health_thread.start()
+        
+        logger.info("🌌 Запускаю Celestial Checker на Render...")
         me = await bot.get_me()
         logger.info(f"🌌 Celestial Checker запущен: @{me.username}")
+        
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
+        
     except Exception as e:
-        logger.error(f"Критическая ошибка при запуске: {e}")
+        logger.error(f"❌ Критическая ошибка: {e}")
+        import traceback
+        logger.error(f"Трассировка: {traceback.format_exc()}")
     finally:
         global session
         if session:
             await session.close()
+        logger.info("Бот завершил работу")
 
 if __name__ == "__main__":
     asyncio.run(main())
