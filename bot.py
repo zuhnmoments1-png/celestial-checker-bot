@@ -1374,27 +1374,28 @@ async def start_web_server():
     logger.info(f"🌐 Health server started on port {port}")
     return runner
 
-async def main():
-    try:
-        # Запускаем веб-сервер в той же event loop
-        web_runner = await start_web_server()
-        
-        logger.info("🌌 Запускаю Celestial Checker на Render...")
-        me = await bot.get_me()
-        logger.info(f"🌌 Celestial Checker запущен: @{me.username}")
-        
-        await bot.delete_webhook(drop_pending_updates=True)
-        await dp.start_polling(bot)
-        
-    except Exception as e:
-        logger.error(f"❌ Критическая ошибка: {e}")
-        import traceback
-        logger.error(f"Трассировка: {traceback.format_exc()}")
-    finally:
-        global session
-        if session:
-            await session.close()
-        logger.info("Бот завершил работу")
+async def simple_main():
+    """Простая версия с базовым перезапуском"""
+    while True:
+        try:
+            # Очищаем перед запуском
+            await bot.delete_webhook(drop_pending_updates=True)
+            
+            logger.info("🚀 Запуск бота...")
+            me = await bot.get_me()
+            logger.info(f"✅ Бот запущен: {me.full_name}")
+            
+            # Запускаем веб-сервер
+            await start_web_server()
+            
+            # Запускаем поллинг
+            await dp.start_polling(bot)
+            
+        except Exception as e:
+            logger.error(f"❌ Бот упал: {e}")
+            logger.info("🔄 Перезапуск через 10 секунд...")
+            await asyncio.sleep(10)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(simple_main())
+
