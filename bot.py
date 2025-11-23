@@ -17,7 +17,7 @@ from aiohttp import web
 import threading
 
 # === КОНФИГУРАЦИЯ ДЛЯ RENDER ===
-TOKEN = os.environ.get('BOT_TOKEN', '8064064840:AAHR8ybOBdaLn-VwiqSE8v-V-HLO1G6vTbc')
+TOKEN = os.environ.get('BOT_TOKEN', '8064064840:AAE74Fl82nZ8L3jxD-h7jMcEFk9GUokG5A8')
 WEB_STATS_URL = os.environ.get('WEB_STATS_URL', 'https://bulka.pythonanywhere.com')
 
 # Настройка логирования
@@ -1357,8 +1357,8 @@ async def other_message(message: Message):
 async def health_check(request):
     return web.Response(text="🌌 Celestial Bot is alive and running!")
 
-async def run_health_server():
-    """Асинхронный запуск веб-сервера"""
+async def start_web_server():
+    """Запуск веб-сервера для health checks"""
     app = web.Application()
     app.router.add_get('/', health_check)
     app.router.add_get('/health', health_check)
@@ -1366,17 +1366,18 @@ async def run_health_server():
     runner = web.AppRunner(app)
     await runner.setup()
     
-    site = web.TCPSite(runner, '0.0.0.0', 10000)
+    # Используем порт из переменной окружения или 10000 по умолчанию
+    port = int(os.environ.get('PORT', 10000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
     
-    logger.info("🌐 Health server started on port 10000")
+    logger.info(f"🌐 Health server started on port {port}")
     return runner
 
 async def main():
     try:
-        # Запускаем веб-сервер для здоровья
-        health_thread = threading.Thread(target=run_health_server, daemon=True)
-        health_thread.start()
+        # Запускаем веб-сервер в той же event loop
+        web_runner = await start_web_server()
         
         logger.info("🌌 Запускаю Celestial Checker на Render...")
         me = await bot.get_me()
@@ -1397,5 +1398,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
