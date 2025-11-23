@@ -17,7 +17,7 @@ from aiohttp import web
 import threading
 
 # === КОНФИГУРАЦИЯ ДЛЯ RENDER ===
-TOKEN = os.environ.get('BOT_TOKEN', '8064064840:AAE74Fl82nZ8L3jxD-h7jMcEFk9GUokG5A8')
+TOKEN = os.environ.get('BOT_TOKEN', '8064064840:AAHR8ybOBdaLn-VwiqSE8v-V-HLO1G6vTbc')
 WEB_STATS_URL = os.environ.get('WEB_STATS_URL', 'https://bulka.pythonanywhere.com')
 
 # Настройка логирования
@@ -1397,4 +1397,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
