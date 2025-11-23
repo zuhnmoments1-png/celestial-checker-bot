@@ -18,7 +18,7 @@ import threading
 
 # === КОНФИГУРАЦИЯ ДЛЯ RENDER ===
 TOKEN = os.environ.get('BOT_TOKEN', '8064064840:AAE74Fl82nZ8L3jxD-h7jMcEFk9GUokG5A8')
-WEB_STATS_URL = os.environ.get('WEB_STATS_URL', 'https://ВАШ_ЛОГИН.pythonanywhere.com')
+WEB_STATS_URL = os.environ.get('WEB_STATS_URL', 'https://bulka.pythonanywhere.com')
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -1357,11 +1357,20 @@ async def other_message(message: Message):
 async def health_check(request):
     return web.Response(text="🌌 Celestial Bot is alive and running!")
 
-def run_health_server():
+async def run_health_server():
+    """Асинхронный запуск веб-сервера"""
     app = web.Application()
     app.router.add_get('/', health_check)
     app.router.add_get('/health', health_check)
-    web.run_app(app, host='0.0.0.0', port=10000)
+    
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    site = web.TCPSite(runner, '0.0.0.0', 10000)
+    await site.start()
+    
+    logger.info("🌐 Health server started on port 10000")
+    return runner
 
 async def main():
     try:
@@ -1388,3 +1397,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
