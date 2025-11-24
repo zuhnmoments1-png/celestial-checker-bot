@@ -18,7 +18,7 @@ from urllib.parse import unquote
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN = "8064064840:AAE74Fl82nZ8L3jxD-h7jMcEFk9GUokG5A8"
+TOKEN = "8064064840:AAHE2HCnY-osSgkk3AzJ43_wYnjJp_pH6qg"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -1406,3 +1406,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
