@@ -484,16 +484,49 @@ async def check_single_account(cookie: str, original_line: str = "", user_id: in
             
             # Получаем AllTimeDonate
             try:
-                async with session.get(
-                    f"https://economy.roblox.com/v1/users/{result['user_id']}/transaction-totals?transactionType=Purchase",
-                    headers=headers
-                ) as donate_resp:
-                    if donate_resp.status == 200:
-                        donate_data = await donate_resp.json()
-                        result['all_time_donate'] = donate_data.get('total', 0)
-                        logger.info(f"🎁 AllTimeDonate: {result['all_time_donate']}")
-            except Exception as e:
-                logger.warning(f"Ошибка получения AllTimeDonate: {e}")
+                async def get_all_time_donate_from_api(session, headers, user_id: int) -> int:
+    """Пытается получить AllTimeDonate разными способами через API"""
+    donate_amount = 0
+    
+    # Попробуем разные эндпоинты
+    endpoints = [
+        f"https://economy.roblox.com/v2/users/{user_id}/transactions?transactionType=Purchase&limit=100",
+        f"https://economy.roblox.com/v1/users/{user_id}/transaction-totals?transactionType=Purchase",
+        f"https://economy.roblox.com/v1/users/{user_id}/transaction-totals?transactionType=Sale",
+    ]
+    
+    for endpoint in endpoints:
+        try:
+            async with session.get(endpoint, headers=headers) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    
+                    # Обработка разных форматов ответов
+                    if 'data' in data:  # Первый эндпоинт
+                        transactions = data.get('data', [])
+                        total_spent = 0
+                        for transaction in transactions:
+                            # Суммируем только отрицательные суммы (траты)
+                            amount = transaction.get('currency', {}).get('amount', 0)
+                            if amount < 0:
+                                total_spent += abs(amount)
+                        if total_spent > 0:
+                            donate_amount = total_spent
+                            logger.info(f"🎁 AllTimeDonate из транзакций: {donate_amount}")
+                            break
+                    
+                    elif 'total' in data:  # Второй и третий эндпоинты
+                        total = data.get('total', 0)
+                        if total > 0:
+                            donate_amount = total
+                            logger.info(f"🎁 AllTimeDonate из totals: {donate_amount}")
+                            break
+                        
+        except Exception as e:
+            logger.warning(f"Ошибка получения AllTimeDonate из {endpoint}: {e}")
+            continue
+    
+    return donate_amount
             
             # Получаем траты в Steal A Brainrot
             if settings.get('exact_brainrot_check', True):
