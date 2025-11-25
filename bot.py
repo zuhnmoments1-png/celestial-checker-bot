@@ -409,7 +409,7 @@ async def check_single_account(cookie: str, original_line: str = "", user_id: in
     if user_id:
         settings = get_user_settings(user_id)
     else:
-        settings = {'exact_brainrot_check': True}  # Значение по умолчанию
+        settings = {'exact_brainrot_check': True}
     
     # Создаем новую сессию для каждого аккаунта
     session = await get_fresh_session()
@@ -433,17 +433,20 @@ async def check_single_account(cookie: str, original_line: str = "", user_id: in
                     result['username'] = user_data.get('name', 'Unknown')
                     result['user_id'] = user_data.get('id', 0)
                     
+                    logger.info(f"✅ Найден пользователь: {result['username']} (ID: {result['user_id']})")
+                    
                     # Получаем дату создания аккаунта
                     creation_date = await get_account_creation_date(session, headers, result['user_id'])
                     result['account_created'] = creation_date
-                    result['account_age_days'] = (datetime.now() - creation_date).days
+                    result['account_age_days'] = (datetime.now().replace(tzinfo=creation_date.tzinfo) - creation_date).days
                     
-                    logger.info(f"✅ Найден пользователь: {result['username']} (ID: {result['user_id']}, Возраст: {result['account_age_days']} дней)")
+                    logger.info(f"📅 Возраст аккаунта: {result['account_age_days']} дней")
+                    
                 else:
                     result['error'] = 'Invalid user data'
                     return result
             elif resp.status == 401:
-                result['error'] = 'Unauthorized'
+                result['error'] = 'Unauthorized - куки невалиден'
                 return result
             else:
                 result['error'] = f'HTTP {resp.status}'
@@ -460,7 +463,7 @@ async def check_single_account(cookie: str, original_line: str = "", user_id: in
                     if robux_resp.status == 200:
                         currency_data = await robux_resp.json()
                         result['robux'] = currency_data.get('robux', 0)
-                        logger.info(f"💰 Robux из API: {result['robux']}")
+                        logger.info(f"💰 Robux: {result['robux']}")
                     else:
                         logger.warning(f"Ошибка получения Robux: HTTP {robux_resp.status}")
             except Exception as e:
@@ -475,8 +478,7 @@ async def check_single_account(cookie: str, original_line: str = "", user_id: in
                     if premium_resp.status == 200:
                         premium_data = await premium_resp.json()
                         result['premium'] = len(premium_data) > 0
-                        if result['premium']:
-                            logger.info(f"👑 Premium статус из API: Да")
+                        logger.info(f"👑 Premium: {'Да' if result['premium'] else 'Нет'}")
             except Exception as e:
                 logger.warning(f"Ошибка получения Premium статуса: {e}")
             
@@ -489,7 +491,7 @@ async def check_single_account(cookie: str, original_line: str = "", user_id: in
                     if donate_resp.status == 200:
                         donate_data = await donate_resp.json()
                         result['all_time_donate'] = donate_data.get('total', 0)
-                        logger.info(f"🎁 AllTimeDonate из API: {result['all_time_donate']}")
+                        logger.info(f"🎁 AllTimeDonate: {result['all_time_donate']}")
             except Exception as e:
                 logger.warning(f"Ошибка получения AllTimeDonate: {e}")
             
@@ -499,7 +501,7 @@ async def check_single_account(cookie: str, original_line: str = "", user_id: in
                 brainrot_spent = await get_exact_steal_a_brainrot_spent(session, headers, result['user_id'])
                 result['steal_a_brainrot_spent'] = brainrot_spent
             else:
-                # Базовая проверка (старый метод)
+                # Базовая проверка
                 logger.info("🔍 Запускаю базовую проверку Steal A Brainrot...")
                 try:
                     async with session.get(
@@ -516,6 +518,7 @@ async def check_single_account(cookie: str, original_line: str = "", user_id: in
                                     if amount < 0:
                                         total_spent += abs(amount)
                             result['steal_a_brainrot_spent'] = total_spent
+                            logger.info(f"🧠 Steal A Brainrot (базовый): {total_spent}")
                 except Exception as e:
                     logger.warning(f"Ошибка базовой проверки Steal A Brainrot: {e}")
                             
@@ -678,15 +681,11 @@ async def process_checker(callback: CallbackQuery, state: FSMContext):
         await state.clear()
         return
     
+    logger.info(f"🔍 Начинаю проверку {total_accounts} аккаунтов...")
+    
     status_message = await callback.message.answer("🌌 <b>Запускаю Celestial Checker...</b>", parse_mode="HTML")
     
     try:
-        await status_message.edit_text(
-            f"🔍 <b>Найдено {total_accounts} аккаунтов</b>\n"
-            f"⚡ <i>Запускаю проверку...</i>",
-            parse_mode="HTML"
-        )
-        
         # Получаем настройки пользователя
         user_settings = get_user_settings(callback.from_user.id)
         
@@ -699,32 +698,17 @@ async def process_checker(callback: CallbackQuery, state: FSMContext):
         
         for account in account_data:
             checked_count += 1
-            progress = checked_count / total_accounts
-            
-            progress_bar = create_advanced_progress_bar(progress)
-            status_text = (
-                f"<b>🌌 CELESTIAL CHECKER - ПРОВЕРКА</b>\n\n"
-                f"<blockquote>{progress_bar}</blockquote>\n"
-                f"🔍 Проверяю аккаунт <b>#{checked_count}</b> из <b>{total_accounts}</b>\n\n"
-                f"<b>📈 ТЕКУЩАЯ СТАТИСТИКА:</b>\n"
-                f"• ✅ Валидных: <b>{len(valid_accounts)}</b>\n"
-                f"• ❌ Невалидных: <b>{checked_count - len(valid_accounts) - 1}</b>\n"
-                f"• 💰 Robux: <b>{total_robux:,}</b>\n"
-                f"• 🎁 AllTimeDonate: <b>{total_donate:,}</b>\n"
-                f"• 🧠 Brainrot: <b>{total_brainrot_spent:,}</b>\n"
-                f"• 👑 Premium: <b>{premium_count}</b>"
-            )
-            
-            await status_message.edit_text(status_text, parse_mode="HTML")
             
             logger.info(f"🔍 Проверка аккаунта #{account['index']}")
             
-            # ИСПРАВЛЕНИЕ: передаем user_id в функцию проверки
+            # Проверяем аккаунт
             account_info = await check_single_account(
                 account['cookie'], 
                 account['original_line'], 
-                callback.from_user.id  # Добавляем user_id
+                callback.from_user.id
             )
+            
+            # Остальной код функции остается таким же...
             
             if account_info['valid']:
                 total_robux += account_info['robux']
@@ -1043,4 +1027,3 @@ if __name__ == "__main__":
     else:
         logger.info(f"🔑 Токен получен (длина: {len(TOKEN)} символов)")
         asyncio.run(main())
-
