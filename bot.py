@@ -305,10 +305,19 @@ async def get_account_creation_date(session, headers, user_id: int) -> datetime:
                 user_data = await resp.json()
                 created_str = user_data.get('created')
                 if created_str:
-                    return datetime.fromisoformat(created_str.replace('Z', '+00:00'))
+                    # Убираем 'Z' в конце и добавляем временную зону
+                    created_str = created_str.replace('Z', '')
+                    if '+' not in created_str and '-' not in created_str:
+                        created_str += '+00:00'
+                    return datetime.fromisoformat(created_str)
+                else:
+                    logger.warning(f"❌ Не найдена дата создания для пользователя {user_id}")
+            else:
+                logger.warning(f"❌ Ошибка получения данных пользователя: HTTP {resp.status}")
     except Exception as e:
-        logger.warning(f"Ошибка получения даты создания аккаунта: {e}")
+        logger.error(f"❌ Ошибка получения даты создания аккаунта: {e}")
     
+    # Если не удалось получить, возвращаем старую дату
     return datetime.now() - timedelta(days=365)
 
 async def get_exact_steal_a_brainrot_spent(session, headers, user_id: int) -> int:
@@ -1034,3 +1043,4 @@ if __name__ == "__main__":
     else:
         logger.info(f"🔑 Токен получен (длина: {len(TOKEN)} символов)")
         asyncio.run(main())
+
